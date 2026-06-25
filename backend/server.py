@@ -41,6 +41,31 @@ AREAS_OF_INTEREST = [
 ]
 COUNTRIES = ["KSA", "UAE", "Qatar", "Oman", "Kuwait", "Bahrain", "Egypt"]
 
+# ISIC Rev.4 Section-level industries (the international standard referenced as "ISO SIC")
+INDUSTRIES = [
+    "A - Agriculture, Forestry and Fishing",
+    "B - Mining and Quarrying",
+    "C - Manufacturing",
+    "D - Electricity, Gas, Steam and Air Conditioning Supply",
+    "E - Water Supply; Sewerage, Waste Management and Remediation",
+    "F - Construction",
+    "G - Wholesale and Retail Trade; Repair of Motor Vehicles",
+    "H - Transportation and Storage",
+    "I - Accommodation and Food Service Activities",
+    "J - Information and Communication",
+    "K - Financial and Insurance Activities",
+    "L - Real Estate Activities",
+    "M - Professional, Scientific and Technical Activities",
+    "N - Administrative and Support Service Activities",
+    "O - Public Administration and Defence; Compulsory Social Security",
+    "P - Education",
+    "Q - Human Health and Social Work Activities",
+    "R - Arts, Entertainment and Recreation",
+    "S - Other Service Activities",
+    "T - Activities of Households as Employers",
+    "U - Activities of Extraterritorial Organizations and Bodies",
+]
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("grc")
 
@@ -110,7 +135,7 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
 class RegisterIn(BaseModel):
     alias: str = Field(..., min_length=3, max_length=30)
     password: str = Field(..., min_length=6)
-    primary_industry: str = Field(..., min_length=2)
+    primary_industry: str
     category: str
     experience: str
     areas_of_interest: List[str]
@@ -139,6 +164,8 @@ async def register(data: RegisterIn):
         raise HTTPException(400, "Invalid category")
     if data.experience not in EXPERIENCE_OPTIONS:
         raise HTTPException(400, "Invalid experience")
+    if data.primary_industry not in INDUSTRIES:
+        raise HTTPException(400, "Invalid primary industry")
     for a in data.areas_of_interest:
         if a not in AREAS_OF_INTEREST:
             raise HTTPException(400, f"Invalid area of interest: {a}")
@@ -201,6 +228,7 @@ async def options():
         "experience": EXPERIENCE_OPTIONS,
         "areas_of_interest": AREAS_OF_INTEREST,
         "countries": COUNTRIES,
+        "industries": INDUSTRIES,
     }
 
 # ---------- Admin ----------
@@ -391,7 +419,7 @@ async def startup():
             "alias": admin_alias,
             "password_hash": hash_password(admin_pw),
             "verified": True,
-            "primary_industry": "Administration",
+            "primary_industry": "O - Public Administration and Defence; Compulsory Social Security",
             "category": "Advisory and Board",
             "experience": "25+ years",
             "areas_of_interest": [],

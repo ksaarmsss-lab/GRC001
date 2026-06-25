@@ -11,7 +11,7 @@ export default function Register() {
   const { t, lang, toggle } = useLang();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [opts, setOpts] = useState({ categories: [], experience: [], areas_of_interest: [], countries: [] });
+  const [opts, setOpts] = useState({ categories: [], experience: [], areas_of_interest: [], countries: [], industries: [] });
   const [form, setForm] = useState({
     alias: "",
     password: "",
@@ -111,15 +111,17 @@ export default function Register() {
                     placeholder="••••••••"
                   />
                 </Field>
-                <Field label={t("primary_industry")}>
-                  <input
-                    data-testid="register-industry-input"
+                <Field label={t("primary_industry")} hint={t("industry_hint")}>
+                  <select
+                    data-testid="register-industry-select"
                     value={form.primary_industry}
                     onChange={(e) => setField("primary_industry", e.target.value)}
                     required
                     className="grc-input"
-                    placeholder="Banking, Energy, Healthcare…"
-                  />
+                  >
+                    <option value="">{t("select_industry")}</option>
+                    {opts.industries.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </Field>
               </>
             )}
