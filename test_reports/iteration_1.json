@@ -1,0 +1,49 @@
+{
+  "summary": "First-finish smoke test of GRC Consultant Portal. Backend APIs (auth, options, consultants, chat, mail, admin) tested via public URL — all critical paths working. Frontend tested via Playwright: admin login, language toggle, directory/mail/admin navigation, logout all working. Two issues noted (one minor spec deviation, one possible nav visibility issue).",
+  "tested_scope": ["backend", "frontend", "auth", "integration"],
+  "passed": [
+    "POST /api/auth/login (admin) -> 200 with token, role=admin, verified=true",
+    "POST /api/auth/register with valid payload -> 200 with token",
+    "POST /api/auth/register duplicate alias -> 409",
+    "GET /api/auth/me with Bearer token -> 200; without token -> 401",
+    "GET /api/options returns categories(5), experience(4), areas_of_interest(6), countries(7)",
+    "GET /api/consultants (authed) -> 200, list",
+    "POST /api/chat/send -> 200 with message id; GET /api/chat/messages/{alias} returns conversation; GET /api/chat/conversations returns aggregated list with last_message and unread",
+    "POST /api/mail/send, GET /api/mail/inbox, GET /api/mail/sent, POST /api/mail/{id}/read, GET /api/mail/unread/count all working",
+    "GET /api/admin/pending as admin -> 200; as consultant -> 403",
+    "POST /api/admin/verify/{alias} -> 200 sets verified=true; GET /api/admin/all -> 200",
+    "FRONTEND: /login renders login-title; admin login redirects to /app/admin",
+    "FRONTEND: auth-language-toggle flips document.documentElement.dir between ltr and rtl",
+    "FRONTEND: Sidebar shows nav-directory-link, nav-profile-link, nav-admin-link for admin",
+    "FRONTEND: Directory loads with directory-search-input; Mail page mail-compose-button opens compose with mail-to/subject/body inputs",
+    "FRONTEND: logout-button clears auth and returns to /login"
+  ],
+  "failed": [
+    {
+      "area": "Backend validation",
+      "issue": "Invalid category/experience/area/country returns 422 (Pydantic) instead of spec-required 400. Specifically: register with invalid 'experience' returns 400 ('Invalid experience') correctly via custom check, but Pydantic-level validation (e.g., primary_industry too short, or pre-validation) returns 422.",
+      "evidence": "curl invalid category payload -> 422 with pydantic detail array. Custom message 'Invalid experience' returns 400 as expected.",
+      "priority": "LOW"
+    },
+    {
+      "area": "Frontend AppShell sidebar",
+      "issue": "nav-chat-link and nav-mail-link reported NOT visible by Playwright is_visible() for admin user at 1365x768 viewport, although code in AppShell.jsx defines them for all users. Could be CSS responsive hiding or a hydration issue. Worth manual verification.",
+      "evidence": "Playwright sidebar checks: nav-chat-link=False, nav-mail-link=False; nav-directory/profile/admin=True. AppShell.jsx lines 31-39 include all four items regardless of role.",
+      "priority": "MEDIUM"
+    },
+    {
+      "area": "Frontend React hydration",
+      "issue": "React console warning: '<span> cannot be a child of <option>' in Directory.jsx select elements. Cosmetic, does not break functionality.",
+      "evidence": "Console error during directory page load referencing Directory.jsx line 69 option element wrapping a span.",
+      "priority": "LOW"
+    }
+  ],
+  "action_items": [
+    "Investigate why nav-chat-link / nav-mail-link are not rendered (or are hidden) in the sidebar for the admin user at desktop viewport. Verify CSS responsive classes (lg:flex etc.) and ensure they show.",
+    "Optional: change Pydantic validation to return 400 instead of 422 for invalid category/area/country to match spec wording, OR update spec to accept 422.",
+    "Optional: fix Directory.jsx <option> children to not contain <span> (use plain text) to remove React hydration warning."
+  ],
+  "success_rate": {"backend": "100%", "frontend": "85%"},
+  "retest_needed": true,
+  "full_testing_deferred": true
+}
