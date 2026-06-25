@@ -1,0 +1,138 @@
+{
+  "project_name": "GRC Consultant Portal",
+  "theme": "dark",
+  "archetype": "5 (Luxury) mixed with 4 (Swiss & High-Contrast)",
+  "design_philosophy": "Sophisticated Clarity. A highly secure, premium executive club. Absolute dark mode with minimal distractions. Deep blacks, structured gray borders, sharp amber actions, and subtle green verifications. Avoid bouncy animations and gradients; everything must feel grounded, precise, and expensive.",
+  "colors": {
+    "background": {
+      "default": "#000000",
+      "surface": "#0A0A0A",
+      "surface_elevated": "#141414",
+      "panel": "#1A1A1A"
+    },
+    "text": {
+      "primary": "#F3F4F6",
+      "secondary": "#9CA3AF",
+      "disabled": "#4B5563",
+      "inverse": "#000000"
+    },
+    "border": {
+      "default": "#262626",
+      "hover": "#404040",
+      "active": "#F5A623"
+    },
+    "accent": {
+      "primary": {
+        "main": "#F5A623",
+        "hover": "#D97706",
+        "bg_subtle": "rgba(245, 166, 35, 0.1)",
+        "text": "#000000"
+      },
+      "secondary": {
+        "success": "#10B981",
+        "online": "#059669",
+        "verified": "#10B981",
+        "bg_subtle": "rgba(16, 185, 129, 0.1)"
+      },
+      "danger": "#DC2626"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "'Cabinet Grotesk', 'IBM Plex Sans Arabic', sans-serif",
+      "body": "'IBM Plex Sans', 'IBM Plex Sans Arabic', sans-serif",
+      "mono": "'JetBrains Mono', monospace"
+    },
+    "scale": {
+      "h1": "text-4xl md:text-5xl font-bold tracking-tight leading-none",
+      "h2": "text-2xl md:text-3xl font-semibold tracking-tight",
+      "h3": "text-xl font-medium tracking-tight",
+      "body": "text-sm md:text-base leading-relaxed",
+      "label": "text-xs font-semibold uppercase tracking-[0.1em]",
+      "caption": "text-xs text-secondary"
+    }
+  },
+  "spacing_and_layout": {
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+    "dashboard_grid": "grid grid-cols-1 md:grid-cols-12 gap-1 md:gap-6",
+    "panel_padding": "p-6 md:p-8",
+    "auth_layout": "grid grid-cols-1 lg:grid-cols-2 min-h-screen",
+    "app_shell": "flex h-screen overflow-hidden bg-black",
+    "sidebar": "w-20 md:w-64 flex-shrink-0 border-r border-[#262626] bg-[#0A0A0A]",
+    "content_area": "flex-1 flex flex-col overflow-hidden"
+  },
+  "components": {
+    "surface": {
+      "card": "bg-[#0A0A0A] border border-[#262626] rounded-sm transition-colors duration-200",
+      "hover": "hover:border-[#404040]"
+    },
+    "button": {
+      "primary": "bg-[#F5A623] text-black font-semibold rounded-sm px-6 py-2 hover:bg-[#D97706] transition-colors flex items-center justify-center gap-2",
+      "secondary": "bg-transparent border border-[#404040] text-primary rounded-sm px-6 py-2 hover:bg-[#1A1A1A] hover:border-[#F5A623] transition-colors",
+      "ghost": "bg-transparent text-secondary hover:text-primary hover:bg-[#1A1A1A] rounded-sm px-4 py-2 transition-colors",
+      "icon": "p-2 rounded-sm text-secondary hover:text-primary hover:bg-[#1A1A1A] transition-colors"
+    },
+    "input": {
+      "wrapper": "flex flex-col gap-1.5",
+      "field": "w-full bg-[#0A0A0A] border border-[#262626] text-primary rounded-sm px-4 py-2.5 focus:outline-none focus:border-[#F5A623] focus:ring-1 focus:ring-[#F5A623] transition-all placeholder:text-[#4B5563]",
+      "label": "text-xs font-medium text-secondary"
+    },
+    "badge": {
+      "verified": "inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] text-xs font-medium",
+      "status_online": "w-2.5 h-2.5 rounded-full bg-[#10B981] ring-2 ring-[#000000]",
+      "category": "px-2 py-1 bg-[#1A1A1A] border border-[#262626] rounded-sm text-xs text-primary"
+    },
+    "chat": {
+      "container": "flex h-full bg-[#000000]",
+      "sidebar": "w-80 border-r border-[#262626] flex flex-col bg-[#0A0A0A]",
+      "main": "flex-1 flex flex-col bg-[#000000]",
+      "bubble_received": "bg-[#1A1A1A] text-primary rounded-2xl rounded-tl-sm px-4 py-3 max-w-[70%]",
+      "bubble_sent": "bg-[#141414] border border-[#262626] text-primary rounded-2xl rounded-tr-sm px-4 py-3 max-w-[70%]"
+    },
+    "email": {
+      "layout": "grid grid-cols-[240px_350px_1fr] h-full",
+      "folder_list": "border-r border-[#262626] bg-[#0A0A0A] p-4",
+      "message_list": "border-r border-[#262626] bg-[#000000] overflow-y-auto",
+      "message_item": "p-4 border-b border-[#262626] cursor-pointer hover:bg-[#0A0A0A] transition-colors",
+      "reading_pane": "bg-[#0A0A0A] flex flex-col"
+    }
+  },
+  "rtl_support": {
+    "directive": "Use <html dir='rtl'> when Arabic is selected.",
+    "tailwind_classes": "Use Tailwind's logical properties (e.g., ms-, me-, ps-, pe-, border-s, border-e) instead of physical properties (ml-, mr-, pl-, pr-, border-l, border-r) to ensure automatic flipping in RTL mode.",
+    "fonts": "Automatically switch heading and body font family to 'IBM Plex Sans Arabic' when dir='rtl'."
+  },
+  "media": {
+    "images": [
+      {
+        "url": "https://images.unsplash.com/photo-1619218070141-bcfeb8b93074?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBkYXJrJTIwY29ycG9yYXRlJTIwYXJjaGl0ZWN0dXJlJTIwZXh0ZXJpb3J8ZW58MHx8fHwxNzgyNDI4NDA1fDA&ixlib=rb-4.1.0&q=85",
+        "category": "hero_background",
+        "description": "Dark, moody corporate architecture. To be used on the right side of the split-screen auth layout. Apply a linear gradient overlay (bg-gradient-to-t from-black via-black/40 to-transparent) so text/logos can sit cleanly on top."
+      }
+    ]
+  },
+  "testing": {
+    "requirement": "ALL interactive and key informational elements MUST include a `data-testid` attribute.",
+    "examples": [
+      "data-testid='login-email-input'",
+      "data-testid='login-submit-button'",
+      "data-testid='chat-message-input'",
+      "data-testid='nav-directory-link'",
+      "data-testid='consultant-verified-badge'"
+    ]
+  },
+  "libraries": {
+    "icons": "@phosphor-icons/react (Duotone for luxury feel)",
+    "forms": "react-hook-form + zod (for complex registration validation)",
+    "components": "shadcn/ui (heavily customized: remove rounded corners, use flat dark colors, no shadows)",
+    "i18n": "i18next or react-i18next for EN/AR toggling"
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the color palette. Do NOT use default Tailwind grays; use the hex values provided to maintain the pure black/dark amber luxury aesthetic.",
+    "Build the Auth page as a split-screen. Left: Multi-step registration form or login. Right: Hero image provided in media.images.",
+    "Ensure the Chat UI feels like WhatsApp but looks corporate. Use the dark bubble colors provided, avoid bright blue/green bubbles.",
+    "The Email UI should mimic a professional desktop client (like Outlook or Superhuman) with a 3-pane layout (Folders -> List -> Reading Pane).",
+    "Implement RTL natively using Tailwind's logical properties (e.g., `ps-4` instead of `pl-4`). Do not duplicate layouts for RTL.",
+    "Always apply `data-testid` to buttons, inputs, and major containers."
+  ]
+}
