@@ -20,7 +20,8 @@ export default function MailPage() {
   const [sending, setSending] = useState(false);
 
   const load = async (f) => {
-    try { const { data } = await api.get(`/mail/${f}`); setEmails(data); setSelected(null); } catch (_) { /* ignore */ }
+    try { const { data } = await api.get(`/mail/${f}`); setEmails(data); setSelected(null); }
+    catch (e) { console.error("mail load failed:", e); }
   };
 
   useEffect(() => { load(folder); }, [folder]);
@@ -34,7 +35,8 @@ export default function MailPage() {
   const openEmail = async (em) => {
     setSelected(em);
     if (folder === "inbox" && !em.read) {
-      try { await api.post(`/mail/${em.id}/read`); load(folder); } catch (_) { /* ignore */ }
+      try { await api.post(`/mail/${em.id}/read`); load(folder); }
+      catch (e) { console.error("mark read failed:", e); }
     }
   };
 

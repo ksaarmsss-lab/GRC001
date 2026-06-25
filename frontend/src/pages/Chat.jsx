@@ -22,14 +22,17 @@ export default function Chat() {
   const bottomRef = useRef(null);
 
   const loadConvs = async () => {
-    try { const { data } = await api.get("/chat/conversations"); setConvs(data); } catch (_) { /* ignore */ }
+    try { const { data } = await api.get("/chat/conversations"); setConvs(data); }
+    catch (e) { console.error("loadConvs failed:", e); }
   };
   const loadConsultants = async () => {
-    try { const { data } = await api.get("/consultants"); setConsultants(data.filter((c) => c.alias !== user?.alias)); } catch (_) { /* ignore */ }
+    try { const { data } = await api.get("/consultants"); setConsultants(data.filter((c) => c.alias !== user?.alias)); }
+    catch (e) { console.error("loadConsultants failed:", e); }
   };
   const loadMessages = async (alias) => {
     if (!alias) return;
-    try { const { data } = await api.get(`/chat/messages/${alias}`); setMessages(data); } catch (_) { /* ignore */ }
+    try { const { data } = await api.get(`/chat/messages/${alias}`); setMessages(data); }
+    catch (e) { console.error("loadMessages failed:", e); }
   };
 
   useEffect(() => { loadConvs(); loadConsultants(); }, []);

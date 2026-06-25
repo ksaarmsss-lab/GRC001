@@ -1,4 +1,5 @@
 import "@/App.css";
+import { useMemo } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { LanguageProvider } from "@/context/LanguageContext";
@@ -13,23 +14,20 @@ import Profile from "@/pages/Profile";
 import Admin from "@/pages/Admin";
 import { Toaster } from "sonner";
 
+const TOAST_STYLE = {
+  background: "#0A0A0A",
+  border: "1px solid #262626",
+  color: "#F3F4F6",
+  borderRadius: "2px",
+};
+
 function App() {
+  const toastOptions = useMemo(() => ({ style: TOAST_STYLE }), []);
   return (
     <LanguageProvider>
       <AuthProvider>
         <BrowserRouter>
-          <Toaster
-            position="top-center"
-            theme="dark"
-            toastOptions={{
-              style: {
-                background: "#0A0A0A",
-                border: "1px solid #262626",
-                color: "#F3F4F6",
-                borderRadius: "2px",
-              },
-            }}
-          />
+          <Toaster position="top-center" theme="dark" toastOptions={toastOptions} />
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />

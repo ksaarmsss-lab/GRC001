@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { MessagesSquare, Mail, Users, User, ShieldCheck, LogOut, Languages, BadgeCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BACKEND_URL } from "@/lib/api";
 
 export default function AppShell() {
@@ -11,6 +11,7 @@ export default function AppShell() {
   const navigate = useNavigate();
   const [online, setOnline] = useState([]);
   const wsRef = useRef(null);
+  const outletCtx = useMemo(() => ({ online }), [online]);
 
   useEffect(() => {
     if (!token) return;
@@ -23,9 +24,9 @@ export default function AppShell() {
         const msg = JSON.parse(e.data);
         if (msg.type === "online") setOnline(msg.data || []);
         window.dispatchEvent(new CustomEvent("grc:ws", { detail: msg }));
-      } catch (_) { /* ignore parse error */ }
+      } catch (e) { console.error("ws parse failed:", e); }
     };
-    return () => { try { ws.close(); } catch (_) { /* ignore close error */ } };
+    return () => { try { ws.close(); } catch (e) { console.error("ws close failed:", e); } };
   }, [token]);
 
   const items = [
@@ -109,7 +110,7 @@ export default function AppShell() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <Outlet context={{ online }} />
+        <Outlet context={outletCtx} />
       </main>
     </div>
   );

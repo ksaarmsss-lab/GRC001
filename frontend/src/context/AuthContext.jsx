@@ -24,29 +24,29 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => { loadMe(); }, [loadMe]);
 
-  const login = async (alias, password) => {
+  const login = useCallback(async (alias, password) => {
     const { data } = await api.post("/auth/login", { alias, password });
     localStorage.setItem("grc_token", data.token);
     setToken(data.token);
     setUser(data.user);
     return data.user;
-  };
+  }, []);
 
-  const register = async (payload) => {
+  const register = useCallback(async (payload) => {
     const { data } = await api.post("/auth/register", payload);
     localStorage.setItem("grc_token", data.token);
     setToken(data.token);
     setUser(data.user);
     return data.user;
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem("grc_token");
     setToken(null);
     setUser(false);
-  };
+  }, []);
 
-  const value = useMemo(() => ({ user, token, login, register, logout, refresh: loadMe }), [user, token, loadMe]);
+  const value = useMemo(() => ({ user, token, login, register, logout, refresh: loadMe }), [user, token, login, register, logout, loadMe]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 

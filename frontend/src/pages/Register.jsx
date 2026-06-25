@@ -54,6 +54,11 @@ export default function Register() {
     }
   };
 
+  const submitLabel = () => {
+    if (step !== 3) return t("next");
+    return loading ? t("loading") : t("submit_register");
+  };
+
   return (
     <div className="min-h-screen bg-black text-[#F3F4F6] flex flex-col">
       <div className="flex items-center justify-between p-6 md:px-14 md:py-8 border-b border-[#262626]">
@@ -228,7 +233,7 @@ export default function Register() {
                 data-testid={step === 3 ? "register-submit-button" : "register-next-button"}
                 className="bg-[#F5A623] text-black font-semibold rounded-sm px-6 py-3 hover:bg-[#D97706] transition-colors flex items-center gap-2 disabled:opacity-50"
               >
-                {step === 3 ? (loading ? t("loading") : t("submit_register")) : t("next")}
+                {submitLabel()}
                 <ArrowRight size={16} />
               </button>
             </div>
