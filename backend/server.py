@@ -41,6 +41,10 @@ AREAS_OF_INTEREST = [
 ]
 COUNTRIES = ["KSA", "UAE", "Qatar", "Oman", "Kuwait", "Bahrain", "Egypt"]
 
+# Login rate-limit settings (per IP + alias)
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_WINDOW_SEC = 15 * 60  # 15 minutes
+
 # ISIC Rev.4 Section-level industries (the international standard referenced as "ISO SIC")
 INDUSTRIES = [
     "A - Agriculture, Forestry and Fishing",
@@ -131,6 +135,49 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
+# ---------- Login rate limiting (brute-force protection) ----------
+def client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+async def check_login_attempts(identifier: str) -> None:
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=LOCKOUT_WINDOW_SEC)
+    record = await db.login_attempts.find_one({"identifier": identifier})
+    if not record:
+        return
+    recent = []
+    for ts in record.get("attempts", []):
+        try:
+            if datetime.fromisoformat(ts) > cutoff:
+                recent.append(ts)
+        except Exception:
+            continue
+    if len(recent) >= MAX_LOGIN_ATTEMPTS:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed login attempts. Please try again in 15 minutes.",
+        )
+
+async def record_failed_attempt(identifier: str) -> None:
+    now_iso = datetime.now(timezone.utc).isoformat()
+    cutoff_iso = (datetime.now(timezone.utc) - timedelta(seconds=LOCKOUT_WINDOW_SEC)).isoformat()
+    # Prune old attempts first
+    await db.login_attempts.update_one(
+        {"identifier": identifier},
+        {"$pull": {"attempts": {"$lt": cutoff_iso}}},
+    )
+    # Then push the new attempt (upsert if document missing)
+    await db.login_attempts.update_one(
+        {"identifier": identifier},
+        {"$push": {"attempts": now_iso}},
+        upsert=True,
+    )
+
+async def clear_login_attempts(identifier: str) -> None:
+    await db.login_attempts.delete_one({"identifier": identifier})
+
 # ---------- Models ----------
 class RegisterIn(BaseModel):
     alias: str = Field(..., min_length=3, max_length=30)
@@ -196,10 +243,15 @@ async def register(data: RegisterIn):
     return {"token": token, "user": public_user(doc)}
 
 @api.post("/auth/login")
-async def login(data: LoginIn):
-    user = await db.users.find_one({"alias": data.alias.strip()})
+async def login(data: LoginIn, request: Request):
+    alias = data.alias.strip()
+    identifier = f"{client_ip(request)}:{alias.lower()}"
+    await check_login_attempts(identifier)
+    user = await db.users.find_one({"alias": alias})
     if not user or not verify_password(data.password, user["password_hash"]):
+        await record_failed_attempt(identifier)
         raise HTTPException(401, "Invalid credentials")
+    await clear_login_attempts(identifier)
     token = create_token(user["id"], user["alias"], user.get("role", "consultant"))
     user.pop("_id", None)
     return {"token": token, "user": public_user(user)}
