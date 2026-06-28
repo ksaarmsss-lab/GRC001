@@ -14,19 +14,44 @@ export default function AppShell() {
   const outletCtx = useMemo(() => ({ online }), [online]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) return undefined;
+    let cancelled = false;
+    let reconnectTimer = null;
+    let attempts = 0;
+
     const proto = BACKEND_URL.startsWith("https") ? "wss" : "ws";
     const host = BACKEND_URL.replace(/^https?:\/\//, "");
-    const ws = new WebSocket(`${proto}://${host}/api/ws?token=${encodeURIComponent(token)}`);
-    wsRef.current = ws;
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === "online") setOnline(msg.data || []);
-        window.dispatchEvent(new CustomEvent("grc:ws", { detail: msg }));
-      } catch (e) { console.error("ws parse failed:", e); }
+    const url = `${proto}://${host}/api/ws?token=${encodeURIComponent(token)}`;
+
+    const connect = () => {
+      if (cancelled) return;
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+      ws.onopen = () => { attempts = 0; };
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === "online") setOnline(msg.data || []);
+          window.dispatchEvent(new CustomEvent("grc:ws", { detail: msg }));
+        } catch (err) { console.error("ws parse failed:", err); }
+      };
+      const scheduleReconnect = () => {
+        if (cancelled) return;
+        attempts += 1;
+        const delay = Math.min(30000, 1000 * 2 ** Math.min(attempts, 5));
+        reconnectTimer = setTimeout(connect, delay);
+      };
+      ws.onclose = scheduleReconnect;
+      ws.onerror = () => { try { ws.close(); } catch (err) { console.error("ws close failed:", err); } };
     };
-    return () => { try { ws.close(); } catch (e) { console.error("ws close failed:", e); } };
+
+    connect();
+    return () => {
+      cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      try { wsRef.current && wsRef.current.close(); }
+      catch (err) { console.error("ws cleanup failed:", err); }
+    };
   }, [token]);
 
   const items = [

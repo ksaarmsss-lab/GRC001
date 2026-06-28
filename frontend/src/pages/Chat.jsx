@@ -62,8 +62,10 @@ export default function Chat() {
     e.preventDefault();
     if (!text.trim() || !active) return;
     try {
-      await api.post("/chat/send", { to_alias: active, content: text.trim() });
+      const { data } = await api.post("/chat/send", { to_alias: active, content: text.trim() });
       setText("");
+      // Optimistic append; the WS echo handler also dedupes by id
+      setMessages((prev) => (prev.find((x) => x.id === data.id) ? prev : [...prev, data]));
     } catch (err) { toast.error(formatApiError(err)); }
   };
 

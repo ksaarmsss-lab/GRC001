@@ -100,7 +100,7 @@ export default function Register() {
                     data-testid="register-alias-input"
                     value={form.alias}
                     onChange={(e) => setField("alias", e.target.value)}
-                    required minLength={3}
+                    required minLength={3} maxLength={50}
                     className="grc-input"
                     placeholder="riskmaverick"
                   />

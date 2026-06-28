@@ -180,26 +180,26 @@ async def clear_login_attempts(identifier: str) -> None:
 
 # ---------- Models ----------
 class RegisterIn(BaseModel):
-    alias: str = Field(..., min_length=3, max_length=30)
-    password: str = Field(..., min_length=6)
-    primary_industry: str
+    alias: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=6, max_length=200)
+    primary_industry: str = Field(..., max_length=200)
     category: str
     experience: str
-    areas_of_interest: List[str]
-    countries: List[str]
+    areas_of_interest: List[str] = Field(..., min_length=1, max_length=20)
+    countries: List[str] = Field(..., min_length=1, max_length=20)
 
 class LoginIn(BaseModel):
-    alias: str
-    password: str
+    alias: str = Field(..., max_length=50)
+    password: str = Field(..., max_length=200)
 
 class MessageIn(BaseModel):
-    to_alias: str
-    content: str
+    to_alias: str = Field(..., max_length=50)
+    content: str = Field(..., min_length=1, max_length=5000)
 
 class EmailIn(BaseModel):
-    to_alias: str
-    subject: str
-    body: str
+    to_alias: str = Field(..., max_length=50)
+    subject: str = Field(..., min_length=1, max_length=200)
+    body: str = Field(..., min_length=1, max_length=50000)
 
 class VerifyIn(BaseModel):
     verified: bool
@@ -409,6 +409,7 @@ class ConnectionManager:
         await ws.accept()
         async with self.lock:
             self.active.setdefault(alias, []).append(ws)
+        await self.broadcast_online()
 
     async def disconnect(self, alias: str, ws: WebSocket):
         async with self.lock:
@@ -417,6 +418,7 @@ class ConnectionManager:
                     self.active[alias].remove(ws)
                 if not self.active[alias]:
                     del self.active[alias]
+        await self.broadcast_online()
 
     async def send_to(self, alias: str, message: dict):
         sockets = list(self.active.get(alias, []))
@@ -428,6 +430,12 @@ class ConnectionManager:
                 dead.append(s)
         for s in dead:
             await self.disconnect(alias, s)
+
+    async def broadcast_online(self):
+        online = list(self.active.keys())
+        payload = {"type": "online", "data": online}
+        for alias in list(self.active.keys()):
+            await self.send_to(alias, payload)
 
     def online_aliases(self) -> List[str]:
         return list(self.active.keys())
@@ -444,7 +452,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     alias = payload["alias"]
     await manager.connect(alias, websocket)
     try:
-        await websocket.send_text(json.dumps({"type": "online", "data": manager.online_aliases()}))
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
