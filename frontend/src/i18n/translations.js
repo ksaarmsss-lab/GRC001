@@ -78,6 +78,7 @@ export const translations = {
     approve: "Approve",
     revoke: "Revoke",
     no_pending: "No pending verifications",
+    ai_assistant: "AI Assistant",
     // Misc
     loading: "Loading…",
     error: "Something went wrong",
@@ -161,6 +162,7 @@ export const translations = {
     approve: "اعتماد",
     revoke: "إلغاء",
     no_pending: "لا توجد طلبات معلّقة",
+    ai_assistant: "مساعد الذكاء الاصطناعي",
     loading: "جاري التحميل…",
     error: "حدث خطأ ما",
     success_registered: "تم إنشاء الملف. بانتظار التوثيق.",

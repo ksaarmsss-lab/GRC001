@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useLang } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
-import { BadgeCheck, MessageSquare, Mail, Search } from "lucide-react";
+import { BadgeCheck, MessageSquare, Mail, Search, Sparkles } from "lucide-react";
 
 export default function Directory() {
   const { t } = useLang();
@@ -73,20 +73,30 @@ export default function Directory() {
       </div>
 
       <div className="px-6 md:px-10 py-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {list.map((c) => (
+        {list.map((c) => {
+          const isBot = c.alias.startsWith("ARM-AI");
+          return (
           <div
             key={c.alias}
             data-testid={`directory-card-${c.alias}`}
-            className="bg-[#0A0A0A] border border-[#262626] hover:border-[#404040] rounded-sm p-5 transition-colors flex flex-col"
+            className={`bg-[#0A0A0A] border ${isBot ? "border-[#F5A623]/40 hover:border-[#F5A623]" : "border-[#262626] hover:border-[#404040]"} rounded-sm p-5 transition-colors flex flex-col`}
           >
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-12 h-12 bg-[#1A1A1A] border border-[#262626] flex items-center justify-center text-[#F5A623] font-semibold text-lg">
-                {c.alias[0].toUpperCase()}
+              <div className={`w-12 h-12 border flex items-center justify-center font-semibold text-lg ${isBot ? "bg-[#F5A623]/10 border-[#F5A623]/40 text-[#F5A623]" : "bg-[#1A1A1A] border-[#262626] text-[#F5A623]"}`}>
+                {isBot ? <Sparkles size={20} data-testid={`directory-ai-icon-${c.alias}`} /> : c.alias[0].toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-medium truncate" data-testid={`directory-alias-${c.alias}`}>{c.alias}</span>
-                  {c.verified && (
+                  {isBot && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-[#F5A623]/10 border border-[#F5A623]/30 text-[#F5A623] text-[10px] font-medium uppercase tracking-wider"
+                      data-testid={`directory-ai-badge-${c.alias}`}
+                    >
+                      <Sparkles size={10} /> {t("ai_assistant")}
+                    </span>
+                  )}
+                  {c.verified && !isBot && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] text-[10px]" data-testid={`directory-verified-${c.alias}`}>
                       <BadgeCheck size={10} /> {t("verified")}
                     </span>
@@ -128,7 +138,8 @@ export default function Directory() {
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
         {list.length === 0 && (
           <div className="col-span-full text-sm text-[#9CA3AF] text-center py-12">No consultants found.</div>
         )}
