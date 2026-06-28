@@ -469,26 +469,56 @@ async def startup():
     await db.users.create_index("alias", unique=True)
     await db.messages.create_index([("from_alias", 1), ("to_alias", 1), ("timestamp", 1)])
     await db.emails.create_index([("to_alias", 1), ("timestamp", -1)])
+    await db.login_attempts.create_index("identifier", unique=True)
+
     admin_alias = os.environ.get("ADMIN_ALIAS", "admin")
-    admin_pw = os.environ.get("ADMIN_PASSWORD", "Admin@123")
-    existing = await db.users.find_one({"alias": admin_alias})
-    if not existing:
+    admin_pw = os.environ.get("ADMIN_PASSWORD")
+    if not admin_pw:
+        logger.warning("ADMIN_PASSWORD not set in environment — admin seed skipped.")
+    else:
+        existing = await db.users.find_one({"alias": admin_alias})
+        if not existing:
+            await db.users.insert_one({
+                "id": str(uuid.uuid4()),
+                "alias": admin_alias,
+                "password_hash": hash_password(admin_pw),
+                "verified": True,
+                "primary_industry": "O - Public Administration and Defence; Compulsory Social Security",
+                "category": "Advisory and Board",
+                "experience": "25+ years",
+                "areas_of_interest": [],
+                "countries": [],
+                "role": "admin",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            logger.info(f"Admin user seeded: {admin_alias}")
+        # NOTE: We intentionally do NOT auto-reset the admin password on every
+        # startup. Changing ADMIN_PASSWORD in env after first boot has no
+        # effect — rotate via DB or a dedicated rotate-admin-password script.
+
+    # Seed default ARM-AI assistant bot. The arm_ai_agent.py worker auto-replies
+    # to any unread chats/emails addressed to users whose alias starts with
+    # "ARM-AI". Admins can create more bots via the normal Register page.
+    arm_alias = "ARM-AI-Assistant"
+    if not await db.users.find_one({"alias": arm_alias}):
+        import secrets
         await db.users.insert_one({
             "id": str(uuid.uuid4()),
-            "alias": admin_alias,
-            "password_hash": hash_password(admin_pw),
+            "alias": arm_alias,
+            "password_hash": hash_password(secrets.token_urlsafe(24)),
             "verified": True,
-            "primary_industry": "O - Public Administration and Defence; Compulsory Social Security",
+            "primary_industry": "M - Professional, Scientific and Technical Activities",
             "category": "Advisory and Board",
             "experience": "25+ years",
-            "areas_of_interest": [],
-            "countries": [],
-            "role": "admin",
+            "areas_of_interest": [
+                "Internal Audit", "Risk Management", "Compliance",
+                "Controls", "Fraud Management", "Quality and Project Management",
+            ],
+            "countries": ["KSA", "UAE", "Qatar", "Oman", "Kuwait", "Bahrain", "Egypt"],
+            "role": "consultant",
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
-        logger.info(f"Admin user seeded: {admin_alias}")
-    elif not verify_password(admin_pw, existing["password_hash"]):
-        await db.users.update_one({"alias": admin_alias}, {"$set": {"password_hash": hash_password(admin_pw)}})
+        logger.info(f"ARM-AI bot seeded: {arm_alias}")
 
 @app.on_event("shutdown")
 async def shutdown():
