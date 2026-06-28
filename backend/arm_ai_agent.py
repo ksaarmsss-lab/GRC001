@@ -35,7 +35,7 @@ POLL_INTERVAL_SEC = 30
 MAX_RESPONSE_LINES = 7
 CHAT_HISTORY_LIMIT = 15
 ARM_AI_PREFIX = "ARM-AI"
-INTERNAL_API = "http://localhost:8001/api"
+INTERNAL_API = os.environ.get("ARM_AI_INTERNAL_API", "http://localhost:8001/api")
 LLM_PROVIDER = "anthropic"
 LLM_MODEL = "claude-sonnet-4-5-20250929"
 
@@ -51,11 +51,7 @@ SYSTEM_PROMPT = (
     "closing signature or sign-off; the system appends one automatically."
 )
 
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
-JWT_SECRET = os.environ.get("JWT_SECRET")
 JWT_ALGO = "HS256"
-MONGO_URL = os.environ.get("MONGO_URL")
-DB_NAME = os.environ.get("DB_NAME")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,16 +60,21 @@ logging.basicConfig(
 )
 log = logging.getLogger("arm-ai")
 
-if not (EMERGENT_LLM_KEY and JWT_SECRET and MONGO_URL and DB_NAME):
-    log.error("Missing required env vars (EMERGENT_LLM_KEY / JWT_SECRET / MONGO_URL / DB_NAME)")
-    raise SystemExit(1)
 
-client = AsyncIOMotorClient(MONGO_URL)
-db = client[DB_NAME]
+def _env() -> tuple[str, str, str, str]:
+    """Read required env vars at call time (not import time) so that the
+    FastAPI backend boots even if these are missing — the worker just logs and
+    exits in that case, the rest of the app still works."""
+    return (
+        os.environ.get("EMERGENT_LLM_KEY", ""),
+        os.environ.get("JWT_SECRET", ""),
+        os.environ.get("MONGO_URL", ""),
+        os.environ.get("DB_NAME", ""),
+    )
 
 
 # ----------------------- Helpers -----------------------
-def issue_token(user_id: str, alias: str) -> str:
+def issue_token(jwt_secret: str, user_id: str, alias: str) -> str:
     payload = {
         "sub": user_id,
         "alias": alias,
@@ -81,7 +82,7 @@ def issue_token(user_id: str, alias: str) -> str:
         "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
         "type": "access",
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+    return jwt.encode(payload, jwt_secret, algorithm=JWT_ALGO)
 
 
 def trim_to_n_lines(text: str, n: int) -> str:
@@ -93,11 +94,11 @@ def with_signature(reply: str) -> str:
     return f"{reply}\n\n{SIGNATURE}"
 
 
-async def generate_reply(bot_alias: str, prior: list[dict], incoming_text: str) -> str:
+async def generate_reply(llm_key: str, bot_alias: str, prior: list[dict], incoming_text: str) -> str:
     """Call Claude Sonnet 4.5 and return a 7-line max reply + signature."""
     session_id = f"{bot_alias}:{uuid.uuid4().hex[:12]}"
     chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
+        api_key=llm_key,
         session_id=session_id,
         system_message=SYSTEM_PROMPT,
     ).with_model(LLM_PROVIDER, LLM_MODEL)
@@ -131,9 +132,9 @@ async def generate_reply(bot_alias: str, prior: list[dict], incoming_text: str) 
 
 
 # ----------------------- Chat processing -----------------------
-async def process_unread_chats(bot: dict, http: httpx.AsyncClient) -> None:
+async def process_unread_chats(db, llm_key: str, jwt_secret: str, bot: dict, http: httpx.AsyncClient) -> None:
     bot_alias = bot["alias"]
-    token = issue_token(bot["id"], bot_alias)
+    token = issue_token(jwt_secret, bot["id"], bot_alias)
     headers = {"Authorization": f"Bearer {token}"}
 
     # Find all unread inbound messages, excluding ones from other ARM-AI bots
@@ -168,7 +169,7 @@ async def process_unread_chats(bot: dict, http: httpx.AsyncClient) -> None:
             incoming_text = "\n".join(m["content"] for m in msgs)
 
             log.info(f"[chat] {bot_alias} <- {sender}: {len(msgs)} unread; generating reply")
-            reply = await generate_reply(bot_alias, prior, incoming_text)
+            reply = await generate_reply(llm_key, bot_alias, prior, incoming_text)
 
             r = await http.post(
                 f"{INTERNAL_API}/chat/send",
@@ -190,9 +191,9 @@ async def process_unread_chats(bot: dict, http: httpx.AsyncClient) -> None:
 
 
 # ----------------------- Email processing -----------------------
-async def process_unread_emails(bot: dict, http: httpx.AsyncClient) -> None:
+async def process_unread_emails(db, llm_key: str, jwt_secret: str, bot: dict, http: httpx.AsyncClient) -> None:
     bot_alias = bot["alias"]
-    token = issue_token(bot["id"], bot_alias)
+    token = issue_token(jwt_secret, bot["id"], bot_alias)
     headers = {"Authorization": f"Bearer {token}"}
 
     cursor = db.emails.find(
@@ -212,7 +213,7 @@ async def process_unread_emails(bot: dict, http: httpx.AsyncClient) -> None:
             log.info(f"[mail] {bot_alias} <- {sender}: '{subject}'; generating reply")
 
             prompt_text = f"Subject: {subject}\n\n{body}"
-            reply_body = await generate_reply(bot_alias, [], prompt_text)
+            reply_body = await generate_reply(llm_key, bot_alias, [], prompt_text)
 
             reply_subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
 
@@ -233,7 +234,21 @@ async def process_unread_emails(bot: dict, http: httpx.AsyncClient) -> None:
 
 
 # ----------------------- Main loop -----------------------
-async def loop() -> None:
+async def run() -> None:
+    """Public entry point — call this from FastAPI's startup hook as
+    ``asyncio.create_task(arm_ai_agent.run())``. Returns normally (logs and
+    no-ops) if required env vars are missing so the backend stays healthy.
+    """
+    llm_key, jwt_secret, mongo_url, db_name = _env()
+    if not (llm_key and jwt_secret and mongo_url and db_name):
+        log.warning(
+            "ARM-AI worker disabled — missing env (EMERGENT_LLM_KEY / "
+            "JWT_SECRET / MONGO_URL / DB_NAME). Set them and restart backend."
+        )
+        return
+
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[db_name]
     log.info(
         "ARM-AI worker starting (model=%s, poll=%ds, prefix=%s)",
         LLM_MODEL, POLL_INTERVAL_SEC, ARM_AI_PREFIX,
@@ -246,12 +261,16 @@ async def loop() -> None:
                     {"_id": 0},
                 ).to_list(50)
                 for bot in bots:
-                    await process_unread_chats(bot, http)
-                    await process_unread_emails(bot, http)
+                    await process_unread_chats(db, llm_key, jwt_secret, bot, http)
+                    await process_unread_emails(db, llm_key, jwt_secret, bot, http)
+            except asyncio.CancelledError:
+                log.info("ARM-AI worker cancelled, exiting.")
+                raise
             except Exception as e:
                 log.exception(f"loop iteration failed: {e}")
             await asyncio.sleep(POLL_INTERVAL_SEC)
 
 
 if __name__ == "__main__":
-    asyncio.run(loop())
+    # Allow running standalone for local debugging:  python arm_ai_agent.py
+    asyncio.run(run())

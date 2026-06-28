@@ -19,6 +19,8 @@ import json
 import logging
 import asyncio
 
+import arm_ai_agent  # background worker, started in @app.on_event("startup")
+
 # ---------- Configuration ----------
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
@@ -519,6 +521,11 @@ async def startup():
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
         logger.info(f"ARM-AI bot seeded: {arm_alias}")
+
+    # Start the ARM-AI background worker as an asyncio task inside this
+    # process so it ships with the backend in production (no separate
+    # supervisor program required).
+    asyncio.create_task(arm_ai_agent.run())
 
 @app.on_event("shutdown")
 async def shutdown():
