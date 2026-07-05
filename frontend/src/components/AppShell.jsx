@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BACKEND_URL } from "@/lib/api";
+import { ARMLogo } from "@/components/ARMLogo";
 
 export default function AppShell() {
   const { user, logout, token } = useAuth();
@@ -67,12 +68,12 @@ export default function AppShell() {
     <div className="flex h-screen overflow-hidden bg-black text-[#F3F4F6]" data-testid="app-shell">
       <aside className="w-20 lg:w-64 flex-shrink-0 border-e border-[#262626] bg-[#0A0A0A] flex flex-col">
         <div className="px-4 lg:px-6 py-6 border-b border-[#262626]">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#F5A623] flex items-center justify-center" data-testid="brand-mark">
-              <span className="text-black font-bold">G</span>
+          <div className="flex items-center gap-2.5">
+            <div data-testid="brand-mark" className="flex-shrink-0">
+              <ARMLogo size={36} />
             </div>
-            <div className="hidden lg:block">
-              <div className="font-display text-lg leading-tight">{t("brand")}</div>
+            <div className="hidden lg:block min-w-0">
+              <div className="font-display text-sm leading-tight truncate">{t("brand")}</div>
               <div className="text-[10px] uppercase tracking-[0.2em] text-[#9CA3AF]">PORTAL</div>
             </div>
           </div>

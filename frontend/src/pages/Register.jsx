@@ -5,6 +5,7 @@ import { useLang } from "@/context/LanguageContext";
 import { api, formatApiError } from "@/lib/api";
 import { ArrowLeft, ArrowRight, Check, Languages } from "lucide-react";
 import { toast } from "sonner";
+import { ARMLogo } from "@/components/ARMLogo";
 
 export default function Register() {
   const { register } = useAuth();
@@ -20,6 +21,8 @@ export default function Register() {
     experience: "",
     areas_of_interest: [],
     countries: [],
+    bio: "",
+    share_knowledge: false,
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,11 +65,9 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-black text-[#F3F4F6] flex flex-col">
       <div className="flex items-center justify-between p-6 md:px-14 md:py-8 border-b border-[#262626]">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#F5A623] flex items-center justify-center">
-            <span className="text-black font-bold">G</span>
-          </div>
-          <span className="font-display text-lg">{t("brand")}</span>
+        <div className="flex items-center gap-2.5">
+          <ARMLogo size={36} />
+          <span className="font-display text-base md:text-lg leading-tight max-w-[280px]">{t("brand")}</span>
         </div>
         <div className="flex items-center gap-6">
           <div className="text-[10px] uppercase tracking-[0.2em] text-[#9CA3AF]" data-testid="register-step-indicator">
@@ -208,6 +209,36 @@ export default function Register() {
                     })}
                   </div>
                 </Field>
+                <Field label={t("bio")} hint={t("bio_hint")}>
+                  <textarea
+                    data-testid="register-bio-input"
+                    value={form.bio}
+                    onChange={(e) => setField("bio", e.target.value)}
+                    rows={3}
+                    maxLength={500}
+                    className="grc-input resize-none"
+                    placeholder="e.g. 20+ years leading internal audit at regional banks; specialised in SAMA/CBUAE regulatory frameworks and IT audit."
+                  />
+                  <div className="text-[10px] text-[#4B5563] text-end mt-1" data-testid="register-bio-count">
+                    {form.bio.length} / 500
+                  </div>
+                </Field>
+                <label
+                  htmlFor="register-share-toggle"
+                  className={`flex items-start gap-3 px-4 py-3 border rounded-sm cursor-pointer transition ${
+                    form.share_knowledge ? "border-[#F5A623] bg-[#F5A623]/5" : "border-[#262626] bg-[#0A0A0A] hover:border-[#404040]"
+                  }`}
+                >
+                  <input
+                    id="register-share-toggle"
+                    type="checkbox"
+                    data-testid="register-share-toggle"
+                    checked={form.share_knowledge}
+                    onChange={(e) => setField("share_knowledge", e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-[#F5A623] cursor-pointer"
+                  />
+                  <span className="text-sm text-[#F3F4F6] leading-relaxed">{t("share_knowledge")}</span>
+                </label>
               </>
             )}
 

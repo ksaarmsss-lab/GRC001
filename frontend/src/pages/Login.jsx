@@ -5,6 +5,7 @@ import { useLang } from "@/context/LanguageContext";
 import { formatApiError } from "@/lib/api";
 import { Languages, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import { ARMLogo } from "@/components/ARMLogo";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1619218070141-bcfeb8b93074?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBkYXJrJTIwY29ycG9yYXRlJTIwYXJjaGl0ZWN0dXJlJTIwZXh0ZXJpb3J8ZW58MHx8fHwxNzgyNDI4NDA1fDA&ixlib=rb-4.1.0&q=85";
 
@@ -36,11 +37,9 @@ export default function Login() {
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-black text-[#F3F4F6]">
       <div className="flex flex-col p-8 md:p-14 relative">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2" data-testid="auth-brand">
-            <div className="w-8 h-8 bg-[#F5A623] flex items-center justify-center">
-              <span className="text-black font-bold">G</span>
-            </div>
-            <span className="font-display text-lg">{t("brand")}</span>
+          <div className="flex items-center gap-2.5" data-testid="auth-brand">
+            <ARMLogo size={40} />
+            <span className="font-display text-lg leading-tight max-w-[240px]">{t("brand")}</span>
           </div>
           <button
             data-testid="auth-language-toggle"
@@ -112,7 +111,7 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="text-[10px] text-[#4B5563] uppercase tracking-[0.3em]">© GRC Council · {new Date().getFullYear()}</div>
+        <div className="text-[10px] text-[#4B5563] uppercase tracking-[0.3em]">© {t("brand")} · {new Date().getFullYear()}</div>
       </div>
 
       <div className="hidden lg:block relative">

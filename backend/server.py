@@ -109,6 +109,8 @@ def public_user(u: dict) -> dict:
         "experience": u.get("experience"),
         "areas_of_interest": u.get("areas_of_interest", []),
         "countries": u.get("countries", []),
+        "bio": u.get("bio", ""),
+        "share_knowledge": u.get("share_knowledge", False),
         "role": u.get("role", "consultant"),
         "created_at": u.get("created_at"),
     }
@@ -218,6 +220,8 @@ class RegisterIn(BaseModel):
     experience: str
     areas_of_interest: List[str] = Field(..., min_length=1, max_length=20)
     countries: List[str] = Field(..., min_length=1, max_length=20)
+    bio: str = Field(default="", max_length=500)
+    share_knowledge: bool = False
 
 class LoginIn(BaseModel):
     alias: str = Field(..., max_length=50)
@@ -234,6 +238,9 @@ class EmailIn(BaseModel):
 
 class VerifyIn(BaseModel):
     verified: bool
+
+class CommentIn(BaseModel):
+    comment: str = Field(..., min_length=1, max_length=2000)
 
 # ---------- Auth ----------
 @api.post("/auth/register")
@@ -271,6 +278,10 @@ async def register(data: RegisterIn, request: Request):
         "experience": data.experience,
         "areas_of_interest": data.areas_of_interest,
         "countries": data.countries,
+        "bio": data.bio.strip(),
+        "share_knowledge": bool(data.share_knowledge),
+        "admin_comments": [],
+        "token_version": 0,
         "role": "consultant",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -351,6 +362,37 @@ async def admin_verify(alias: str, data: VerifyIn, user: dict = Depends(require_
     if res.matched_count == 0:
         raise HTTPException(404, "Consultant not found")
     return {"alias": alias, "verified": data.verified}
+
+@api.get("/admin/sharers")
+async def admin_sharers(user: dict = Depends(require_admin)):
+    """List consultants who opted in to knowledge-sharing, including any
+    admin comments left about them."""
+    rows = await db.users.find(
+        {"role": "consultant", "share_knowledge": True},
+        {"_id": 0, "password_hash": 0},
+    ).sort("created_at", -1).to_list(1000)
+    result = []
+    for r in rows:
+        pu = public_user(r)
+        pu["admin_comments"] = r.get("admin_comments", [])
+        result.append(pu)
+    return result
+
+@api.post("/admin/comments/{alias}")
+async def admin_add_comment(alias: str, data: CommentIn, user: dict = Depends(require_admin)):
+    target = await db.users.find_one({"alias": alias})
+    if not target:
+        raise HTTPException(404, "Consultant not found")
+    if not target.get("share_knowledge", False):
+        raise HTTPException(400, "Comments are only allowed on knowledge-sharing members")
+    entry = {
+        "id": str(uuid.uuid4()),
+        "comment": data.comment.strip(),
+        "by": user["alias"],
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.update_one({"alias": alias}, {"$push": {"admin_comments": entry}})
+    return entry
 
 # ---------- Chat ----------
 @api.get("/chat/conversations")

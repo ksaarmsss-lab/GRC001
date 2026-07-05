@@ -1,6 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, Sparkles } from "lucide-react";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -21,7 +21,7 @@ export default function Profile() {
               {user.alias[0].toUpperCase()}
             </div>
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
                 <h2 className="font-display text-3xl" data-testid="profile-alias">{user.alias}</h2>
                 {user.verified ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] text-xs" data-testid="profile-verified-badge">
@@ -32,12 +32,29 @@ export default function Profile() {
                     {t("unverified")}
                   </span>
                 )}
+                {user.share_knowledge && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-[#F5A623]/10 border border-[#F5A623]/30 text-[#F5A623] text-xs uppercase tracking-wider"
+                    data-testid="profile-sharer-badge"
+                  >
+                    <Sparkles size={12} /> {t("share_knowledge_yes")}
+                  </span>
+                )}
               </div>
               <div className="text-sm text-[#9CA3AF]">{user.primary_industry}</div>
               <div className="text-xs text-[#4B5563] mt-1">
                 {t("member_since")} {user.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}
               </div>
             </div>
+          </div>
+
+          <div className="mb-8">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-[#9CA3AF] mb-2">{t("profile_bio")}</div>
+            {user.bio ? (
+              <p data-testid="profile-bio" className="text-sm text-[#F3F4F6] leading-relaxed whitespace-pre-wrap">{user.bio}</p>
+            ) : (
+              <p className="text-sm text-[#4B5563] italic">{t("profile_no_bio")}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
