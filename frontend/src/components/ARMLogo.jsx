@@ -1,4 +1,4 @@
-export const ARMLogo = ({ size = 40, className = "", color = "#F5A623" }) => (
+export const ARMLogo = ({ size = 40, className = "", color = "#10B981" }) => (
   <svg
     viewBox="0 0 60 60"
     width={size}
@@ -14,8 +14,17 @@ export const ARMLogo = ({ size = 40, className = "", color = "#F5A623" }) => (
       strokeWidth="2"
       strokeLinejoin="round"
     />
-    <text x="30" y="37" textAnchor="middle" fill={color} fontSize="11" fontWeight="700" fontFamily="Fraunces, serif" letterSpacing="0.5">NW</text>
-    {/* GRC — along top-left side */}
+    {/* GRC — centered inside the triangle (swapped with NW) */}
+    <text
+      x="30" y="37"
+      textAnchor="middle"
+      fill={color}
+      fontSize="11"
+      fontWeight="700"
+      fontFamily="Fraunces, serif"
+      letterSpacing="0.5"
+    >GRC</text>
+    {/* NW — along top-left side (swapped with GRC) */}
     <text
       x="14" y="28"
       textAnchor="middle"
@@ -25,7 +34,7 @@ export const ARMLogo = ({ size = 40, className = "", color = "#F5A623" }) => (
       fontFamily="'IBM Plex Sans', sans-serif"
       letterSpacing="0.6"
       transform="rotate(-61 14 28)"
-    >GRC</text>
+    >NW</text>
     {/* AI — along top-right side */}
     <text
       x="46" y="28"
