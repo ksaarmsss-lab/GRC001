@@ -88,12 +88,13 @@ def verify_password(pw: str, hashed: str) -> bool:
     except Exception:
         return False
 
-def create_token(user_id: str, alias: str, role: str) -> str:
+def create_token(user_id: str, alias: str, role: str, token_version: int = 0) -> str:
     payload = {
         "sub": user_id,
         "alias": alias,
         "role": role,
-        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+        "tv": token_version,  # bumped on server-side logout to invalidate all issued tokens
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24),
         "type": "access",
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
@@ -129,6 +130,10 @@ async def get_current_user(request: Request) -> dict:
     user = await db.users.find_one({"id": payload["sub"]})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    # Server-side session revocation: reject tokens whose version is older than
+    # the user's current token_version (bumped on every /auth/logout).
+    if payload.get("tv", 0) != user.get("token_version", 0):
+        raise HTTPException(status_code=401, detail="Session revoked; please sign in again")
     user.pop("_id", None)
     return user
 
@@ -240,7 +245,7 @@ async def register(data: RegisterIn):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(doc)
-    token = create_token(uid, alias, "consultant")
+    token = create_token(uid, alias, "consultant", 0)
     doc.pop("_id", None)
     return {"token": token, "user": public_user(doc)}
 
@@ -254,9 +259,23 @@ async def login(data: LoginIn, request: Request):
         await record_failed_attempt(identifier)
         raise HTTPException(401, "Invalid credentials")
     await clear_login_attempts(identifier)
-    token = create_token(user["id"], user["alias"], user.get("role", "consultant"))
+    token = create_token(
+        user["id"], user["alias"], user.get("role", "consultant"),
+        user.get("token_version", 0),
+    )
     user.pop("_id", None)
     return {"token": token, "user": public_user(user)}
+
+@api.post("/auth/logout")
+async def logout(user: dict = Depends(get_current_user)):
+    """Server-side session revocation: bump the user's token_version so every
+    previously-issued JWT (including any copies stashed elsewhere) fails the
+    next authorised request."""
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$inc": {"token_version": 1}},
+    )
+    return {"ok": True}
 
 @api.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
@@ -532,10 +551,38 @@ async def shutdown():
     client.close()
 
 app.include_router(api)
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+# ---------- Security headers middleware ----------
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # Prevent browsers from caching authenticated API responses
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+# ---------- CORS ----------
+_cors_env = os.environ.get('CORS_ORIGINS', '*').strip()
+if _cors_env == '*':
+    # Wildcard is incompatible with allow_credentials=True and unnecessary for a
+    # bearer-token SPA. Fall back to a permissive origin_regex without credentials.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_credentials=False,
+        allow_origin_regex=".*",
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_credentials=True,
+        allow_origins=[o.strip() for o in _cors_env.split(',') if o.strip()],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )

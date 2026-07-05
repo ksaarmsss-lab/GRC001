@@ -60,7 +60,7 @@ export default function Login() {
             </h1>
             <p className="text-sm text-[#9CA3AF] mb-10">{t("welcome_back_sub")}</p>
 
-            <form onSubmit={onSubmit} className="space-y-5">
+            <form onSubmit={onSubmit} className="space-y-5" autoComplete="on">
               <div>
                 <label className="text-[10px] uppercase tracking-[0.2em] text-[#9CA3AF] mb-1.5 block">{t("alias")}</label>
                 <input
@@ -69,6 +69,8 @@ export default function Login() {
                   onChange={(e) => setAlias(e.target.value)}
                   required
                   autoFocus
+                  autoComplete="username"
+                  spellCheck="false"
                   className="w-full bg-[#0A0A0A] border border-[#262626] text-[#F3F4F6] rounded-sm px-4 py-3 focus:outline-none focus:border-[#F5A623] focus:ring-1 focus:ring-[#F5A623] transition placeholder:text-[#4B5563]"
                   placeholder="riskmaverick"
                 />
@@ -81,6 +83,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  autoComplete="current-password"
                   className="w-full bg-[#0A0A0A] border border-[#262626] text-[#F3F4F6] rounded-sm px-4 py-3 focus:outline-none focus:border-[#F5A623] focus:ring-1 focus:ring-[#F5A623] transition placeholder:text-[#4B5563]"
                   placeholder="••••••••"
                 />

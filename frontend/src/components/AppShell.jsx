@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import { MessagesSquare, Mail, Users, User, ShieldCheck, LogOut, Languages, BadgeCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
@@ -8,7 +8,6 @@ import { BACKEND_URL } from "@/lib/api";
 export default function AppShell() {
   const { user, logout, token } = useAuth();
   const { t, lang, toggle } = useLang();
-  const navigate = useNavigate();
   const [online, setOnline] = useState([]);
   const wsRef = useRef(null);
   const outletCtx = useMemo(() => ({ online }), [online]);
@@ -110,7 +109,7 @@ export default function AppShell() {
           </button>
           <button
             data-testid="logout-button"
-            onClick={() => { logout(); navigate("/login"); }}
+            onClick={logout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm text-[#9CA3AF] hover:bg-[#1A1A1A] hover:text-[#F3F4F6] transition-colors"
           >
             <LogOut size={18} />
