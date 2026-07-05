@@ -185,6 +185,30 @@ async def record_failed_attempt(identifier: str) -> None:
 async def clear_login_attempts(identifier: str) -> None:
     await db.login_attempts.delete_one({"identifier": identifier})
 
+
+async def enforce_rate_limit(bucket: str, key: str, max_calls: int, window_sec: int) -> None:
+    """Generic sliding-window rate limit. Records the current call and raises
+    HTTP 429 if the total in the window exceeds ``max_calls``. Uses the shared
+    ``db.rate_limits`` collection keyed by ``bucket:key``."""
+    coll = db.rate_limits
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    cutoff_iso = (now - timedelta(seconds=window_sec)).isoformat()
+    doc_key = f"{bucket}:{key}"
+    # Prune old
+    await coll.update_one({"key": doc_key}, {"$pull": {"attempts": {"$lt": cutoff_iso}}})
+    # Check current count
+    record = await coll.find_one({"key": doc_key})
+    count = len(record.get("attempts", [])) if record else 0
+    if count >= max_calls:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Please slow down and try again shortly.")
+    # Record this call
+    await coll.update_one(
+        {"key": doc_key},
+        {"$push": {"attempts": now_iso}},
+        upsert=True,
+    )
+
 # ---------- Models ----------
 class RegisterIn(BaseModel):
     alias: str = Field(..., min_length=3, max_length=50)
@@ -213,7 +237,10 @@ class VerifyIn(BaseModel):
 
 # ---------- Auth ----------
 @api.post("/auth/register")
-async def register(data: RegisterIn):
+async def register(data: RegisterIn, request: Request):
+    # SEC-002: rate-limit registrations to 3 per IP per hour (mass-signup abuse)
+    await enforce_rate_limit("register", client_ip(request), max_calls=3, window_sec=3600)
+
     if data.category not in CATEGORIES:
         raise HTTPException(400, "Invalid category")
     if data.experience not in EXPERIENCE_OPTIONS:
@@ -227,6 +254,9 @@ async def register(data: RegisterIn):
         if c not in COUNTRIES:
             raise HTTPException(400, f"Invalid country: {c}")
     alias = data.alias.strip()
+    # SEC-003: reserved namespace — only admin-seeded ARM-AI bots may exist
+    if alias.upper().startswith("ARM-AI"):
+        raise HTTPException(403, "This alias namespace is reserved.")
     existing = await db.users.find_one({"alias": alias})
     if existing:
         raise HTTPException(409, "Alias already taken")
@@ -359,6 +389,8 @@ async def get_messages(other_alias: str, user: dict = Depends(get_current_user))
 
 @api.post("/chat/send")
 async def send_message(data: MessageIn, user: dict = Depends(get_current_user)):
+    # SEC-002: cap per-user chat sending to 30/min (spam + LLM abuse via ARM-AI)
+    await enforce_rate_limit("chat", user["id"], max_calls=30, window_sec=60)
     if data.to_alias == user["alias"]:
         raise HTTPException(400, "Cannot message yourself")
     recipient = await db.users.find_one({"alias": data.to_alias})
@@ -393,6 +425,8 @@ async def list_mail(folder: str, user: dict = Depends(get_current_user)):
 
 @api.post("/mail/send")
 async def send_mail(data: EmailIn, user: dict = Depends(get_current_user)):
+    # SEC-002: cap per-user email sending to 20/hour (spam + LLM abuse via ARM-AI)
+    await enforce_rate_limit("mail", user["id"], max_calls=20, window_sec=3600)
     recipient = await db.users.find_one({"alias": data.to_alias})
     if not recipient:
         raise HTTPException(404, "Recipient not found")
@@ -470,6 +504,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     except HTTPException:
         await websocket.close(code=4401)
         return
+    # SEC-001: enforce server-side session revocation on WebSocket too.
+    # Without this, a logged-out or revoked token could open a live socket
+    # and keep receiving the victim's incoming chats/emails until JWT expiry.
+    user = await db.users.find_one({"id": payload["sub"]})
+    if not user or payload.get("tv", 0) != user.get("token_version", 0):
+        await websocket.close(code=4401)
+        return
     alias = payload["alias"]
     await manager.connect(alias, websocket)
     try:
@@ -491,6 +532,8 @@ async def startup():
     await db.messages.create_index([("from_alias", 1), ("to_alias", 1), ("timestamp", 1)])
     await db.emails.create_index([("to_alias", 1), ("timestamp", -1)])
     await db.login_attempts.create_index("identifier", unique=True)
+    await db.rate_limits.create_index("key", unique=True)
+    await db.arm_ai_daily.create_index("key", unique=True)
 
     admin_alias = os.environ.get("ADMIN_ALIAS", "admin")
     admin_pw = os.environ.get("ADMIN_PASSWORD")

@@ -34,6 +34,7 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 POLL_INTERVAL_SEC = 30
 MAX_RESPONSE_LINES = 7
 CHAT_HISTORY_LIMIT = 15
+DAILY_REPLY_CAP_PER_SENDER = 20  # SEC-002: hard per-user daily budget guard
 ARM_AI_PREFIX = "ARM-AI"
 INTERNAL_API = os.environ.get("ARM_AI_INTERNAL_API", "http://localhost:8001/api")
 LLM_PROVIDER = "anthropic"
@@ -92,6 +93,32 @@ def trim_to_n_lines(text: str, n: int) -> str:
 
 def with_signature(reply: str) -> str:
     return f"{reply}\n\n{SIGNATURE}"
+
+
+async def check_daily_cap(db, bot_alias: str, sender: str) -> bool:
+    """Returns True if under cap; increments counter atomically. Returns False
+    if the sender has already hit today's per-bot reply budget."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    key = f"{bot_alias}:{sender}:{today}"
+    coll = db.arm_ai_daily
+    record = await coll.find_one({"key": key})
+    count = record.get("count", 0) if record else 0
+    if count >= DAILY_REPLY_CAP_PER_SENDER:
+        return False
+    await coll.update_one(
+        {"key": key},
+        {"$inc": {"count": 1}, "$setOnInsert": {"created": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    return True
+
+
+def daily_cap_message() -> str:
+    return with_signature(
+        f"You've reached today's limit of {DAILY_REPLY_CAP_PER_SENDER} ARM-AI "
+        f"responses. Please try again tomorrow or reach out to a human "
+        f"ARM-EXPERT directly."
+    )
 
 
 async def generate_reply(llm_key: str, bot_alias: str, prior: list[dict], incoming_text: str) -> str:
@@ -168,8 +195,15 @@ async def process_unread_chats(db, llm_key: str, jwt_secret: str, bot: dict, htt
             prior = [m for m in thread if m["id"] not in new_ids]
             incoming_text = "\n".join(m["content"] for m in msgs)
 
-            log.info(f"[chat] {bot_alias} <- {sender}: {len(msgs)} unread; generating reply")
-            reply = await generate_reply(llm_key, bot_alias, prior, incoming_text)
+            # SEC-002: enforce per-sender daily reply cap. If capped, send a
+            # canned message and mark originals as read — no LLM call.
+            under_cap = await check_daily_cap(db, bot_alias, sender)
+            if not under_cap:
+                log.info(f"[chat] {bot_alias} <- {sender}: daily cap hit, sending canned reply")
+                reply = daily_cap_message()
+            else:
+                log.info(f"[chat] {bot_alias} <- {sender}: {len(msgs)} unread; generating reply")
+                reply = await generate_reply(llm_key, bot_alias, prior, incoming_text)
 
             r = await http.post(
                 f"{INTERNAL_API}/chat/send",
@@ -210,10 +244,16 @@ async def process_unread_emails(db, llm_key: str, jwt_secret: str, bot: dict, ht
             sender = em["from_alias"]
             subject = em.get("subject", "")
             body = em.get("body", "")
-            log.info(f"[mail] {bot_alias} <- {sender}: '{subject}'; generating reply")
 
-            prompt_text = f"Subject: {subject}\n\n{body}"
-            reply_body = await generate_reply(llm_key, bot_alias, [], prompt_text)
+            # SEC-002: per-sender daily cap
+            under_cap = await check_daily_cap(db, bot_alias, sender)
+            if not under_cap:
+                log.info(f"[mail] {bot_alias} <- {sender}: daily cap hit, sending canned reply")
+                reply_body = daily_cap_message()
+            else:
+                log.info(f"[mail] {bot_alias} <- {sender}: '{subject}'; generating reply")
+                prompt_text = f"Subject: {subject}\n\n{body}"
+                reply_body = await generate_reply(llm_key, bot_alias, [], prompt_text)
 
             reply_subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
 
